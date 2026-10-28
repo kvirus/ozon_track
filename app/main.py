@@ -98,6 +98,7 @@ async def run_bot(cfg: Config) -> None:
     tracker = Tracker(cfg, bot)
     register_handlers(dp, tracker)
 
+    await tracker.notify_startup()
     await tracker.start()
     monitor_task = asyncio.create_task(monitor(tracker, cfg.poll_interval))
     try:

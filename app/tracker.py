@@ -32,6 +32,11 @@ class Tracker:
     async def stop(self) -> None:
         await self.client.stop()
 
+    async def notify_startup(self) -> None:
+        if not self.cfg.notify_on_start:
+            return
+        await self._notify("Бот запущен и следит за заказом.\n\n" + self.cached_summary())
+
     def cached_summary(self) -> str:
         record = self.state.get("tracks", {}).get(self.cfg.track_number)
         if not record or not record.get("data"):
