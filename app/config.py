@@ -5,6 +5,20 @@ from urllib.parse import parse_qs, unquote, urlparse
 from zoneinfo import ZoneInfo
 
 
+def normalize_proxy(value: str | None) -> str | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    lowered = value.lower()
+    if lowered.startswith("socks5h://"):
+        value = "socks5://" + value[len("socks5h://"):]
+    elif lowered.startswith("socks4a://"):
+        value = "socks4://" + value[len("socks4a://"):]
+    elif lowered.startswith("socks://"):
+        value = "socks5://" + value[len("socks://"):]
+    return value
+
+
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.getenv(name)
     if raw is None or raw.strip() == "":
@@ -65,7 +79,7 @@ class Config:
         return cls(
             bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
             chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
-            telegram_proxy=os.getenv("TELEGRAM_PROXY", "").strip() or None,
+            telegram_proxy=normalize_proxy(os.getenv("TELEGRAM_PROXY")),
             track_url=track_url,
             track_number=track_number,
             poll_interval=max(60, _env_int("POLL_INTERVAL_SECONDS", 3600)),
