@@ -1,0 +1,10 @@
+services:
+  ozon-track:
+    build: .
+    # Chromium для Playwright не имеет стабильной сборки под linux/arm64.
+    # На Apple Silicon эмулируем amd64; на x86-сервере строку можно удалить.
+    platform: linux/amd64
+    env_file: .env
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
