@@ -35,7 +35,9 @@ class Tracker:
     async def notify_startup(self) -> None:
         if not self.cfg.notify_on_start:
             return
-        await self._notify("Бот запущен и следит за заказом.\n\n" + self.cached_summary())
+        sent = await self._notify("Бот запущен и следит за заказом.\n\n" + self.cached_summary())
+        if sent:
+            LOG.info("Стартовое сообщение отправлено в Telegram")
 
     def cached_summary(self) -> str:
         record = self.state.get("tracks", {}).get(self.cfg.track_number)
@@ -108,10 +110,12 @@ class Tracker:
         except OSError as exc:
             LOG.error("Не удалось сохранить состояние: %s", exc)
 
-    async def _notify(self, text: str) -> None:
+    async def _notify(self, text: str) -> bool:
         if self.bot is None:
-            return
+            return False
         try:
             await self.bot.send_message(self.cfg.chat_id, text)
+            return True
         except Exception as exc:
             LOG.error("Не удалось отправить сообщение в Telegram: %s", exc)
+            return False

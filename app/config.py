@@ -43,6 +43,7 @@ def extract_track_number(value: str) -> str:
 class Config:
     bot_token: str
     chat_id: str
+    telegram_proxy: str | None
     track_url: str
     track_number: str
     poll_interval: int
@@ -64,6 +65,7 @@ class Config:
         return cls(
             bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
             chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+            telegram_proxy=os.getenv("TELEGRAM_PROXY", "").strip() or None,
             track_url=track_url,
             track_number=track_number,
             poll_interval=max(60, _env_int("POLL_INTERVAL_SECONDS", 3600)),

@@ -99,6 +99,8 @@ cp .env.example .env
 TELEGRAM_BOT_TOKEN=123456789:AA...
 TELEGRAM_CHAT_ID=-1001234567890
 OZON_TRACK_URL=https://tracking.ozon.ru/?track=0000000000
+# Если api.telegram.org недоступен с сервера:
+# TELEGRAM_PROXY=socks5://user:pass@host:1080
 ```
 
 4. Узнать `TELEGRAM_CHAT_ID` группы: запустите бота и отправьте в группе команду `/id`.
@@ -116,12 +118,35 @@ docker compose logs -f
 docker compose down
 ```
 
+## Прокси для Telegram
+
+Если сервер не может достучаться до `api.telegram.org`, в логах будет:
+
+```
+ERROR app.tracker: Не удалось отправить сообщение в Telegram: HTTP Client says - Request timeout error
+```
+
+В этом случае задайте `TELEGRAM_PROXY`:
+
+```dotenv
+TELEGRAM_PROXY=socks5://user:password@1.2.3.4:1080
+```
+
+Поддерживаются `socks5://`, `socks4://` и `http://`. Логин и пароль опциональны. Прокси используется только для Telegram Bot API; запросы к Ozon идут напрямую с сервера.
+
+После изменения `.env` образ пересобирать не нужно, достаточно перезапустить контейнер:
+
+```bash
+docker compose up -d --force-recreate
+```
+
 ## Переменные окружения
 
 | Переменная | По умолчанию | Описание |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | — | Токен бота от BotFather (обязательно) |
 | `TELEGRAM_CHAT_ID` | — | ID группы или чата, куда слать уведомления (обязательно) |
+| `TELEGRAM_PROXY` | — | SOCKS5/HTTP-прокси только для Telegram API, например `socks5://user:pass@host:1080` |
 | `OZON_TRACK_URL` | — | Полная ссылка отслеживания, номер берётся из `?track=` |
 | `OZON_TRACK_NUMBER` | — | Номер напрямую; имеет приоритет над ссылкой |
 | `POLL_INTERVAL_SECONDS` | `3600` | Интервал проверки в секундах (минимум 60) |
@@ -208,6 +233,7 @@ rm -f data/state.json
 ## Отладка
 
 - **`Не получили ответ API tracking.ozon.ru`** — скорее всего не пройден Antibot. Бот сохраняет скриншот и HTML страницы в `/data/debug`. Увеличьте `NAV_TIMEOUT_SECONDS`, проверьте доступ к `tracking.ozon.ru`, при необходимости удалите `data/browser` и дайте боту получить свежие cookie.
+- **`Request timeout error` / нет сообщений в Telegram** — сервер не видит `api.telegram.org`. Задайте `TELEGRAM_PROXY` (см. раздел «Прокси для Telegram»).
 - **`Заказ ... не найден`** — неверный номер или заказ ещё не зарегистрирован в трекинге. Проверьте ссылку через `--once --dump`.
 - **Долго собирается образ** — Chromium и системные зависимости Playwright скачиваются на этапе `docker compose build`. Это нормально.
 - **Apple Silicon / ARM** — в `docker-compose.yml` стоит `platform: linux/amd64`, потому что Chromium для Playwright под Linux ARM нестабилен. На x86-сервере эту строку можно удалить. Эмуляция amd64 на Mac работает, но медленнее.

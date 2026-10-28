@@ -8,6 +8,7 @@ import time
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import Message
@@ -50,6 +51,7 @@ async def run_once(cfg: Config, dump: bool) -> int:
 async def monitor(tracker: Tracker, interval: int) -> None:
     while True:
         started = time.monotonic()
+        LOG.info("Проверяю заказ %s", tracker.cfg.track_number)
         try:
             await tracker.poll()
         except Exception:
@@ -90,8 +92,16 @@ def register_handlers(dp: Dispatcher, tracker: Tracker) -> None:
 
 
 async def run_bot(cfg: Config) -> None:
+    LOG.info(
+        "Запуск: заказ %s, интервал %s с, SOCKS/HTTP-прокси Telegram: %s",
+        cfg.track_number,
+        cfg.poll_interval,
+        "да" if cfg.telegram_proxy else "нет",
+    )
+    session = AiohttpSession(proxy=cfg.telegram_proxy) if cfg.telegram_proxy else None
     bot = Bot(
         cfg.bot_token,
+        session=session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher()
@@ -100,6 +110,7 @@ async def run_bot(cfg: Config) -> None:
 
     await tracker.notify_startup()
     await tracker.start()
+    LOG.info("Браузер запущен, начинаю опрос заказа")
     monitor_task = asyncio.create_task(monitor(tracker, cfg.poll_interval))
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
