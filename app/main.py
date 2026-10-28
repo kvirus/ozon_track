@@ -12,9 +12,10 @@ from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.filters import Command
 from aiogram.types import Message
+from playwright.async_api import async_playwright
 
 from .config import Config
-from .ozon import OzonClient
+from .ozon import OzonClient, playwright_proxy
 from .render import build_summary
 from .tracker import Tracker
 
@@ -47,6 +48,24 @@ async def run_once(cfg: Config, dump: bool) -> int:
         return 0
     finally:
         await client.stop()
+
+
+async def run_egress(cfg: Config) -> int:
+    proxy = playwright_proxy(cfg.ozon_proxy)
+    print("Ozon proxy:", proxy["server"] if proxy else "не задан (прямое соединение)")
+    async with async_playwright() as playwright:
+        browser = await playwright.chromium.launch(headless=True, proxy=proxy)
+        try:
+            page = await browser.new_page()
+            await page.goto(
+                "https://api.ipify.org?format=json",
+                wait_until="domcontentloaded",
+                timeout=30_000,
+            )
+            print("Egress IP:", (await page.inner_text("body")).strip())
+        finally:
+            await browser.close()
+    return 0
 
 
 async def monitor(tracker: Tracker, interval: int) -> None:
@@ -94,13 +113,18 @@ def register_handlers(dp: Dispatcher, tracker: Tracker) -> None:
 
 async def run_bot(cfg: Config) -> None:
     LOG.info(
-        "Запуск: заказ %s, интервал %s с, прокси Telegram: %s, прокси Ozon: %s",
+        "Запуск: заказ %s, интервал %s с, прокси Telegram: %s, прокси Ozon: %s, headless: %s",
         cfg.track_number,
         cfg.poll_interval,
         "да" if cfg.telegram_proxy else "нет",
         "да" if cfg.ozon_proxy else "нет",
+        "да" if cfg.headless else "нет (Xvfb)",
     )
-    session = AiohttpSession(proxy=cfg.telegram_proxy) if cfg.telegram_proxy else None
+    session = (
+        AiohttpSession(proxy=cfg.telegram_proxy, timeout=25)
+        if cfg.telegram_proxy
+        else AiohttpSession(timeout=25)
+    )
     bot = Bot(
         cfg.bot_token,
         session=session,
@@ -130,6 +154,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ozon Track -> Telegram")
     parser.add_argument("--once", action="store_true", help="одна проверка без Telegram")
     parser.add_argument("--dump", action="store_true", help="напечатать сырой JSON API")
+    parser.add_argument("--egress", action="store_true", help="показать внешний IP через OZON_PROXY")
     return parser.parse_args()
 
 
@@ -138,6 +163,8 @@ def main() -> None:
     args = parse_args()
     try:
         cfg = Config.from_env()
+        if args.egress:
+            sys.exit(asyncio.run(run_egress(cfg)))
         if args.once:
             sys.exit(asyncio.run(run_once(cfg, args.dump)))
         cfg.validate_telegram()

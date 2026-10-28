@@ -48,6 +48,30 @@ DESCRIPTIONS = {
     "SubmittedForCourierDelivery": "Курьер свяжется с вами и согласует точное время доставки",
 }
 
+ORDER = [
+    "Created",
+    "TransferringToDelivery",
+    "WayToCity",
+    "ParcelDepartureFromCarrier",
+    "ArrivedToOutwardExchangeOffice",
+    "OutFromOutwardExchangeOffice",
+    "ArrivedAtDestinationCountry",
+    "CustomsClearanceStarted",
+    "CustomsClearanceInProcess",
+    "CustomsRefusedParcelRelease",
+    "CustomsClearanceCompleted",
+    "SentToSortingCenter",
+    "ReleasedFromSortingCenter",
+    "AwaitingRecipientCity",
+    "InTransitRecipientCity",
+    "ParcelIsOnTheWay",
+    "AvailableForPickup",
+    "SubmittedForCourierDelivery",
+    "Received",
+]
+
+PVZ_TYPES = {"PVZ", "Post"}
+
 FINAL_EVENTS = {"Received", "PickedUpByTheCustomer", "DeliveredByCourier", "Delivered"}
 
 LOCATION_FIELDS = ("location", "city", "warehouse", "place", "address", "facility", "point")

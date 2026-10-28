@@ -19,7 +19,6 @@ BLOCK_MARKERS = (
 
 DEFAULT_UA_VERSION = "131.0.0.0"
 
-
 def playwright_proxy(url: str | None) -> dict | None:
     if not url:
         return None
@@ -96,6 +95,7 @@ class OzonClient:
                 await browser.close()
         except Exception as exc:
             LOG.debug("Не удалось определить версию Chromium: %s", exc)
+        LOG.info("Chromium %s", version)
         return (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
             f"(KHTML, like Gecko) Chrome/{version} Safari/537.36"
@@ -103,10 +103,16 @@ class OzonClient:
 
     async def stop(self) -> None:
         if self._context is not None:
-            await self._context.close()
+            try:
+                await self._context.close()
+            except Exception as exc:
+                LOG.debug("Браузер уже закрыт: %s", exc)
             self._context = None
         if self._playwright is not None:
-            await self._playwright.stop()
+            try:
+                await self._playwright.stop()
+            except Exception as exc:
+                LOG.debug("Playwright уже остановлен: %s", exc)
             self._playwright = None
         self._page = None
 

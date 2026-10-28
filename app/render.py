@@ -41,20 +41,45 @@ def item_key(item: dict) -> str:
     return f"{item.get('event')}|{item.get('moment')}|{statuses.location(item)}"
 
 
+def _order_index(event: str | None) -> int:
+    try:
+        return statuses.ORDER.index(event or "")
+    except ValueError:
+        return -1
+
+
 def latest_item(data: dict) -> dict | None:
     items = actual_items(data)
-    return items[-1] if items else None
+    if not items:
+        return None
+
+    def sort_key(item: dict) -> tuple[datetime, int]:
+        moment = parse_dt(item.get("moment")) or datetime.min.replace(tzinfo=timezone.utc)
+        return moment, _order_index(item.get("event"))
+
+    return max(items, key=sort_key)
 
 
 def next_pending(data: dict) -> str | None:
-    items = [it for it in (data.get("items") or []) if isinstance(it, dict)]
+    events = {
+        item.get("event")
+        for item in actual_items(data)
+    }
+    if "Cancelled" in events:
+        return None
+
     last_idx = -1
-    for idx, item in enumerate(items):
-        if item.get("moment"):
+    for idx, event in enumerate(statuses.ORDER):
+        if event in events:
             last_idx = idx
-    for item in items[last_idx + 1:]:
-        if not item.get("moment"):
-            return item.get("event")
+
+    pvz = data.get("deliveryType") in statuses.PVZ_TYPES
+    for event in statuses.ORDER[last_idx + 1:]:
+        if event == "SubmittedForCourierDelivery" and pvz:
+            continue
+        if event == "AvailableForPickup" and not pvz:
+            continue
+        return event
     return None
 
 

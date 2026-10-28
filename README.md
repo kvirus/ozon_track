@@ -152,9 +152,23 @@ docker compose up -d --force-recreate
 Инцидент: fab_ichlg_...
 ```
 
-В логах при этом будет `Ozon заблокировал запрос (похоже, нет соединения)`, а в `/data/debug` сохранится скриншот и HTML этой страницы. Это блокировка по IP, а не проблема Playwright: headless-браузер здесь не поможет.
+В логах при этом будет `Ozon заблокировал запрос (похоже, нет соединения)`, а в `/data/debug` сохранится скриншот и HTML этой страницы.
 
-Решение — направить Chromium через прокси с чистым резидентным IP:
+Причины по частоте:
+
+1. грязный IP (датацентр, VPN, плохая репутация);
+2. залипший профиль браузера — cookie блокировки, полученные при неудачной попытке;
+3. особенности headless-браузера в Linux (шрифты, WebGL, WebRTC) — поэтому есть вариант `HEADLESS=false` с Xvfb.
+
+Сначала попробуйте чистый профиль:
+
+```bash
+docker compose down
+rm -rf data/browser
+docker compose up -d
+```
+
+Если не помогло — направьте Chromium через прокси с чистым резидентным IP:
 
 ```dotenv
 OZON_PROXY=socks5://user:password@1.2.3.4:1080
@@ -169,8 +183,27 @@ docker compose up -d --force-recreate
 Проверить, что IP подходит, можно разово:
 
 ```bash
+docker compose exec ozon-track python -m app.main --egress
 docker compose exec ozon-track python -m app.main --once --dump
 ```
+
+`--egress` показывает внешний IP через `OZON_PROXY`. Если он чистый (домашний/резидентный), а Ozon всё равно отдаёт заглушку, проверьте на свежем профиле, не трогая рабочий:
+
+```bash
+docker compose exec ozon-track sh -c 'BROWSER_DIR=/tmp/ozon-fresh python -m app.main --once --dump'
+```
+
+Если и там блок — попробуйте обычный Chromium вместо headless:
+
+```dotenv
+HEADLESS=false
+```
+
+```bash
+docker compose up -d --build
+```
+
+В образе уже есть Xvfb и набор шрифтов: `HEADLESS=false` запускает полноценный Chromium в виртуальном дисплее. Для `--once` в этом режиме используйте `docker compose exec ozon-track xvfb-run -a python -m app.main --once --dump`.
 
 ## Переменные окружения
 

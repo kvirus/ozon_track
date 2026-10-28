@@ -114,9 +114,16 @@ class Tracker:
     async def _notify(self, text: str) -> bool:
         if self.bot is None:
             return False
-        try:
-            await self.bot.send_message(self.cfg.chat_id, text)
-            return True
-        except Exception as exc:
-            LOG.error("Не удалось отправить сообщение в Telegram: %s", exc)
-            return False
+        for attempt in (1, 2):
+            try:
+                await self.bot.send_message(self.cfg.chat_id, text)
+                return True
+            except Exception as exc:
+                LOG.error(
+                    "Не удалось отправить сообщение в Telegram (попытка %s/2): %s",
+                    attempt,
+                    exc,
+                )
+                if attempt == 1:
+                    await asyncio.sleep(3)
+        return False
