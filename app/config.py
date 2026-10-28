@@ -58,6 +58,7 @@ class Config:
     bot_token: str
     chat_id: str
     telegram_proxy: str | None
+    ozon_proxy: str | None
     track_url: str
     track_number: str
     poll_interval: int
@@ -80,6 +81,7 @@ class Config:
             bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
             chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
             telegram_proxy=normalize_proxy(os.getenv("TELEGRAM_PROXY")),
+            ozon_proxy=normalize_proxy(os.getenv("OZON_PROXY")),
             track_url=track_url,
             track_number=track_number,
             poll_interval=max(60, _env_int("POLL_INTERVAL_SECONDS", 3600)),

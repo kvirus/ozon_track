@@ -33,6 +33,7 @@ async def run_once(cfg: Config, dump: bool) -> int:
         headless=cfg.headless,
         timeout_seconds=cfg.nav_timeout,
         user_data_dir=cfg.browser_dir,
+        proxy=cfg.ozon_proxy,
     )
     await client.start()
     try:
@@ -93,10 +94,11 @@ def register_handlers(dp: Dispatcher, tracker: Tracker) -> None:
 
 async def run_bot(cfg: Config) -> None:
     LOG.info(
-        "Запуск: заказ %s, интервал %s с, SOCKS/HTTP-прокси Telegram: %s",
+        "Запуск: заказ %s, интервал %s с, прокси Telegram: %s, прокси Ozon: %s",
         cfg.track_number,
         cfg.poll_interval,
         "да" if cfg.telegram_proxy else "нет",
+        "да" if cfg.ozon_proxy else "нет",
     )
     session = AiohttpSession(proxy=cfg.telegram_proxy) if cfg.telegram_proxy else None
     bot = Bot(

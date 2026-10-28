@@ -24,6 +24,7 @@ class Tracker:
             headless=cfg.headless,
             timeout_seconds=cfg.nav_timeout,
             user_data_dir=cfg.browser_dir,
+            proxy=cfg.ozon_proxy,
         )
 
     async def start(self) -> None:

@@ -101,6 +101,8 @@ TELEGRAM_CHAT_ID=-1001234567890
 OZON_TRACK_URL=https://tracking.ozon.ru/?track=0000000000
 # Если api.telegram.org недоступен с сервера:
 # TELEGRAM_PROXY=socks5://user:pass@host:1080
+# Если Ozon блокирует IP сервера (страница «Похоже, нет соединения»):
+# OZON_PROXY=socks5://user:pass@host:1080
 ```
 
 4. Узнать `TELEGRAM_CHAT_ID` группы: запустите бота и отправьте в группе команду `/id`.
@@ -132,12 +134,42 @@ ERROR app.tracker: Не удалось отправить сообщение в 
 TELEGRAM_PROXY=socks5://user:password@1.2.3.4:1080
 ```
 
-Поддерживаются `socks5://`, `socks4://` и `http://`. Можно указать `socks5h://` — бот автоматически заменит его на `socks5://` (DNS в любом случае резолвится на стороне прокси). Логин и пароль опциональны. Прокси используется только для Telegram Bot API; запросы к Ozon идут напрямую с сервера.
+Поддерживаются `socks5://`, `socks4://` и `http://`. Можно указать `socks5h://` — бот автоматически заменит его на `socks5://` (DNS в любом случае резолвится на стороне прокси). Логин и пароль опциональны. `TELEGRAM_PROXY` используется только для Telegram Bot API; для Ozon есть отдельный `OZON_PROXY`.
 
 После изменения `.env` образ пересобирать не нужно, достаточно перезапустить контейнер:
 
 ```bash
 docker compose up -d --force-recreate
+```
+
+## Ozon блокирует IP сервера
+
+Датацентровые и VPN-адреса Ozon часто отдаёт не на страницу трекинга, а на заглушку antibot:
+
+```
+Похоже, нет соединения
+Выключите VPN, перезагрузите роутер или подключитесь к другой сети
+Инцидент: fab_ichlg_...
+```
+
+В логах при этом будет `Ozon заблокировал запрос (похоже, нет соединения)`, а в `/data/debug` сохранится скриншот и HTML этой страницы. Это блокировка по IP, а не проблема Playwright: headless-браузер здесь не поможет.
+
+Решение — направить Chromium через прокси с чистым резидентным IP:
+
+```dotenv
+OZON_PROXY=socks5://user:password@1.2.3.4:1080
+```
+
+Формат такой же, как у `TELEGRAM_PROXY` (включая `socks5h://`). Прокси применяется только к браузеру Ozon. После изменения `.env`:
+
+```bash
+docker compose up -d --force-recreate
+```
+
+Проверить, что IP подходит, можно разово:
+
+```bash
+docker compose exec ozon-track python -m app.main --once --dump
 ```
 
 ## Переменные окружения
@@ -147,6 +179,7 @@ docker compose up -d --force-recreate
 | `TELEGRAM_BOT_TOKEN` | — | Токен бота от BotFather (обязательно) |
 | `TELEGRAM_CHAT_ID` | — | ID группы или чата, куда слать уведомления (обязательно) |
 | `TELEGRAM_PROXY` | — | SOCKS5/HTTP-прокси только для Telegram API, например `socks5://user:pass@host:1080` |
+| `OZON_PROXY` | — | Прокси для Chromium/Ozon, если IP сервера заблокирован antibot |
 | `OZON_TRACK_URL` | — | Полная ссылка отслеживания, номер берётся из `?track=` |
 | `OZON_TRACK_NUMBER` | — | Номер напрямую; имеет приоритет над ссылкой |
 | `POLL_INTERVAL_SECONDS` | `3600` | Интервал проверки в секундах (минимум 60) |
@@ -232,7 +265,8 @@ rm -f data/state.json
 
 ## Отладка
 
-- **`Не получили ответ API tracking.ozon.ru`** — скорее всего не пройден Antibot. Бот сохраняет скриншот и HTML страницы в `/data/debug`. Увеличьте `NAV_TIMEOUT_SECONDS`, проверьте доступ к `tracking.ozon.ru`, при необходимости удалите `data/browser` и дайте боту получить свежие cookie.
+- **`Ozon заблокировал запрос` / страница «Похоже, нет соединения»** — IP сервера заблокирован antibot Ozon. Задайте `OZON_PROXY` с резидентным IP (см. раздел «Ozon блокирует IP сервера»). Скриншот и HTML сохраняются в `/data/debug`.
+- **`Не получили ответ API tracking.ozon.ru`** — API не ответил, но явной заглушки нет. Увеличьте `NAV_TIMEOUT_SECONDS`, проверьте доступ к `tracking.ozon.ru`, при необходимости удалите `data/browser` и дайте боту получить свежие cookie. Отладочные файлы — в `/data/debug`.
 - **`Request timeout error` / нет сообщений в Telegram** — сервер не видит `api.telegram.org`. Задайте `TELEGRAM_PROXY` (см. раздел «Прокси для Telegram»).
 - **`Заказ ... не найден`** — неверный номер или заказ ещё не зарегистрирован в трекинге. Проверьте ссылку через `--once --dump`.
 - **Долго собирается образ** — Chromium и системные зависимости Playwright скачиваются на этапе `docker compose build`. Это нормально.
